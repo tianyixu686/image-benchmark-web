@@ -1,0 +1,19 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtualenv
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# VSCode
+.vscode/
+
+# Dataset images (do NOT push large image set)
+backend/static/images/
+
+# Misc
+*.log
