@@ -116,10 +116,18 @@ def extract_metadata_records(json_items):
             # 防止超出 ImageMetadata.style 的长度限制 (VARCHAR(50))
             style_value = style_str[:50]
 
+        # 优先使用中文精简描述，其次英文精简描述，最后原始英文prompt
+        prompt_value = (
+            item.get('prompt_simple_cn')
+            or item.get('prompt_simple')
+            or item.get('prompt')
+            or None
+        )
+
         records.append({
             'image_id': image_id,
             'image_path': normalize_image_path(raw_path),
-            'prompt': item.get('prompt') or None,
+            'prompt': prompt_value,
             'category': item.get('category') or extract_category_from_path(raw_path),
             'style': style_value or extract_style_from_path(raw_path),
             'is_real': bool(item.get('is_real', False)),
@@ -132,10 +140,10 @@ def extract_metadata_records(json_items):
 
 def main():
     parser = argparse.ArgumentParser(description='导入预处理数据到数据库')
-    parser.add_argument('--pickle', default='../benchmark(1)/preprocessed_data_gram.pkl',
-                       help='pickle文件路径（默认: ../benchmark(1)/preprocessed_data_gram.pkl）')
-    parser.add_argument('--json', default='../benchmark(1)/merged_data.json',
-                       help='merged_data.json路径（默认: ../benchmark(1)/merged_data.json）')
+    parser.add_argument('--pickle', default='../data/preprocessed_data_gram.pkl',
+                       help='pickle文件路径（默认: ../data/preprocessed_data_gram.pkl）')
+    parser.add_argument('--json', default='../data/merged_data_with_simple.json',
+                       help='merged_data_with_simple.json路径（默认: ../data/merged_data_with_simple.json）')
     parser.add_argument('--drop-existing', action='store_true',
                        help='删除已存在的表数据（危险！）')
     parser.add_argument('--skip-images', action='store_true',

@@ -94,7 +94,11 @@ app.include_router(auth.router, prefix=settings.API_V1_STR, tags=["认证"])
 app.include_router(users.router, prefix=settings.API_V1_STR, tags=["用户"])
 app.include_router(ratings.router, prefix=settings.API_V1_STR, tags=["评分"])
 app.include_router(recommendations.router, prefix=settings.API_V1_STR, tags=["推荐"])
-app.include_router(admin.router, prefix=settings.API_V1_STR + "/admin", tags=["管理"])
+
+# 管理接口仅在显式开启时暴露，避免普通用户通过公网访问
+ENABLE_ADMIN_API = os.getenv("ENABLE_ADMIN_API", "false").lower() == "true"
+if ENABLE_ADMIN_API:
+    app.include_router(admin.router, prefix=settings.API_V1_STR + "/admin", tags=["管理"])
 
 
 @app.get("/")

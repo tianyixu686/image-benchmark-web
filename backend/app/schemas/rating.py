@@ -11,6 +11,7 @@ class RatingBase(BaseModel):
     image_id: str
     quality_score: int
     preference_score: int
+    task_match_score: Optional[int] = None
 
 
 class RatingCreate(RatingBase):

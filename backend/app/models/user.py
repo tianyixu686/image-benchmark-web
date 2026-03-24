@@ -32,6 +32,7 @@ class Rating(Base):
     image_id = Column(String(50), nullable=False, index=True)  # 图像ID字符串
     quality_score = Column(Integer, nullable=False)  # 质量评分 1-5
     preference_score = Column(Integer, nullable=False)  # 偏好评分 1-5
+    task_match_score = Column(Integer, nullable=True)  # 任务匹配评分 1-5，可选
     batch_number = Column(Integer, nullable=False, default=0)  # 批次号
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

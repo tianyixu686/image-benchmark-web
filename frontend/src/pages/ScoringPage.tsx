@@ -11,6 +11,7 @@ interface ImageRatingState {
   image: ImageInfo
   qualityScore: number | null
   preferenceScore: number | null
+   taskMatchScore: number | null
   isSubmitted: boolean
 }
 
@@ -18,6 +19,7 @@ interface RatedImageRecord {
   image: ImageInfo
   qualityScore: number
   preferenceScore: number
+   taskMatchScore?: number
   batchNumber: number
   createdAt: string | undefined
 }
@@ -98,6 +100,7 @@ export default function ScoringPage() {
         image,
         qualityScore: null,
         preferenceScore: null,
+        taskMatchScore: null,
         isSubmitted: false
       }))
 
@@ -125,28 +128,30 @@ export default function ScoringPage() {
         return
       }
 
-      const imageDetails = await Promise.all(
+      const imageDetails: (RatedImageRecord | null)[] = await Promise.all(
         ratings.map(async (rating) => {
           try {
             const image = await recommendationAPI.getImageInfo(rating.image_id)
-            return {
+            const record: RatedImageRecord = {
               image,
               qualityScore: rating.quality_score,
               preferenceScore: rating.preference_score,
+              taskMatchScore: rating.task_match_score,
               batchNumber: rating.batch_number,
               createdAt: rating.created_at,
-            } satisfies RatedImageRecord
+            }
+            return record
           } catch {
             return null
           }
         })
       )
 
-      setRatedHistory(
-        imageDetails
-          .filter((item): item is RatedImageRecord => item !== null)
-          .reverse()
+      const validDetails = imageDetails.filter(
+        (item): item is RatedImageRecord => item !== null
       )
+
+      setRatedHistory(validDetails.reverse())
     } catch (error) {
       console.error('加载已评分图像失败:', error)
     }
@@ -166,8 +171,10 @@ export default function ScoringPage() {
       const newImages = [...prev]
       if (type === 'quality') {
         newImages[index].qualityScore = score
-      } else {
+      } else if (type === 'preference') {
         newImages[index].preferenceScore = score
+      } else {
+        newImages[index].taskMatchScore = score
       }
       return newImages
     })
@@ -178,8 +185,8 @@ export default function ScoringPage() {
     if (!user) return
 
     const imageState = images[index]
-    if (imageState.qualityScore === null || imageState.preferenceScore === null) {
-      toast.error('请完成两个维度的评分')
+    if (imageState.qualityScore === null || imageState.taskMatchScore === null || imageState.preferenceScore === null) {
+      toast.error('请完成三个维度的评分')
       return
     }
 
@@ -188,6 +195,7 @@ export default function ScoringPage() {
       const ratingData: RatingCreate = {
         image_id: imageState.image.image_id,
         quality_score: imageState.qualityScore,
+        task_match_score: imageState.taskMatchScore,
         preference_score: imageState.preferenceScore,
         batch_number: batchNumber
       }
@@ -206,7 +214,8 @@ export default function ScoringPage() {
         user_id: user.user_id,
         image_id: imageState.image.image_id,
         quality_score: imageState.qualityScore,
-        preference_score: imageState.preferenceScore,
+          preference_score: imageState.preferenceScore,
+          task_match_score: imageState.taskMatchScore!,
         batch_number: batchNumber
       })
 
@@ -215,6 +224,7 @@ export default function ScoringPage() {
           image: imageState.image,
           qualityScore: imageState.qualityScore,
           preferenceScore: imageState.preferenceScore,
+          taskMatchScore: imageState.taskMatchScore!,
           batchNumber,
           createdAt: undefined,
         },
@@ -239,6 +249,7 @@ export default function ScoringPage() {
 
     const unsubmittedImages = images.filter(img =>
       img.qualityScore !== null &&
+      img.taskMatchScore !== null &&
       img.preferenceScore !== null &&
       !img.isSubmitted
     )
@@ -253,6 +264,7 @@ export default function ScoringPage() {
       const ratings = unsubmittedImages.map(imageState => ({
         image_id: imageState.image.image_id,
         quality_score: imageState.qualityScore!,
+        task_match_score: imageState.taskMatchScore!,
         preference_score: imageState.preferenceScore!,
         batch_number: batchNumber
       }))
@@ -341,6 +353,7 @@ export default function ScoringPage() {
   const canSubmitAll = () => {
     return images.some(img =>
       img.qualityScore !== null &&
+      img.taskMatchScore !== null &&
       img.preferenceScore !== null &&
       !img.isSubmitted
     )
@@ -383,7 +396,7 @@ export default function ScoringPage() {
               图像评分任务
             </h1>
             <p className="mt-2 text-gray-600">
-              请对以下图像进行评分。每张图像需要从两个维度评分：图像质量（技术层面）和个人偏好（主观喜好）。
+              请对以下图像进行评分。每张图像需要从三个维度评分：图像质量（技术层面）、任务匹配（图像与提示/任务的相关度）和个人偏好（主观喜好）。
             </p>
           </div>
 
@@ -403,6 +416,16 @@ export default function ScoringPage() {
         <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
           <h2 className="font-semibold text-base mb-2">评分提醒</h2>
           <div className="space-y-2 leading-6">
+            <p>
+              本任务包含三个评分维度：
+              <span className="font-semibold"> 图像质量</span>、
+              <span className="font-semibold"> 任务匹配</span>
+              和
+              <span className="font-semibold"> 个人偏好</span>。
+            </p>
+            <p>
+              任务匹配分主要关注图像内容与给定提示/任务是否一致，例如主体、属性、场景和整体语义是否贴合描述。
+            </p>
             <p>
               请把自己代入“你正在使用文生图模型生成图片”的场景，按
               <span className="font-semibold">自己的真实喜好</span>
@@ -484,7 +507,7 @@ export default function ScoringPage() {
               className={`bg-white rounded-xl shadow-lg overflow-hidden border-2 transition-all duration-300 ${
                 imageState.isSubmitted
                   ? 'border-green-500'
-                  : imageState.qualityScore !== null && imageState.preferenceScore !== null
+                  : imageState.qualityScore !== null && imageState.taskMatchScore !== null && imageState.preferenceScore !== null
                   ? 'border-blue-500'
                   : 'border-gray-200'
               }`}
@@ -494,7 +517,7 @@ export default function ScoringPage() {
                 <img
                   src={imageState.image.image_url}
                   alt={imageState.image.prompt}
-                  className="w-full h-48 object-cover"
+                  className="w-full max-h-96 object-contain bg-black"
                   loading="lazy"
                   decoding="async"
                   onError={(e) => {
@@ -522,7 +545,10 @@ export default function ScoringPage() {
 
               {/* 图像信息 */}
               <div className="p-4 border-b border-gray-100">
-                <p className="text-sm text-gray-600 line-clamp-2">
+                <p
+                  className="text-sm text-gray-600 line-clamp-2"
+                  title={imageState.image.prompt}
+                >
                   {imageState.image.prompt}
                 </p>
                 {imageState.image.style && (
@@ -565,6 +591,36 @@ export default function ScoringPage() {
                   </div>
                 </div>
 
+                {/* 任务匹配评分 */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    任务匹配评分 <span className="text-red-500">*</span>
+                    <span className="ml-2 text-xs text-gray-500">(图像与任务/提示描述的匹配程度)</span>
+                  </label>
+                  <div className="flex space-x-1">
+                    {[1, 2, 3, 4, 5].map(score => (
+                      <button
+                        key={`task-${score}`}
+                        type="button"
+                        onClick={() => updateImageScore(index, 'task' as any, score)}
+                        disabled={imageState.isSubmitted}
+                        className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
+                          imageState.taskMatchScore === score
+                            ? 'bg-indigo-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        } ${imageState.isSubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>不匹配</span>
+                    <span>一般</span>
+                    <span>非常匹配</span>
+                  </div>
+                </div>
+
                 {/* 个人偏好评分 */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -604,6 +660,7 @@ export default function ScoringPage() {
                   disabled={
                     imageState.isSubmitted ||
                     imageState.qualityScore === null ||
+                    imageState.taskMatchScore === null ||
                     imageState.preferenceScore === null ||
                     isSubmitting
                   }
@@ -630,7 +687,7 @@ export default function ScoringPage() {
                 {/* 评分状态 */}
                 {imageState.isSubmitted && (
                   <div className="mt-3 text-center text-xs text-gray-500">
-                    质量: {imageState.qualityScore}分 · 偏好: {imageState.preferenceScore}分
+                    质量: {imageState.qualityScore}分 · 匹配: {imageState.taskMatchScore}分 · 偏好: {imageState.preferenceScore}分
                   </div>
                 )}
               </div>
@@ -702,7 +759,7 @@ export default function ScoringPage() {
               <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
               <span className="mr-4">待提交: {images.filter(img => img.qualityScore !== null && img.preferenceScore !== null && !img.isSubmitted).length} 张</span>
               <div className="w-3 h-3 rounded-full bg-gray-300 mr-2"></div>
-              <span>未评分: {images.filter(img => img.qualityScore === null || img.preferenceScore === null).length} 张</span>
+              <span>未评分: {images.filter(img => img.qualityScore === null || img.taskMatchScore === null || img.preferenceScore === null).length} 张</span>
             </div>
           </div>
         </div>
@@ -729,6 +786,15 @@ export default function ScoringPage() {
               <li>• <strong>3分</strong>: 一般，无特别感觉</li>
               <li>• <strong>4-5分</strong>: 喜欢或非常喜欢</li>
               <li>• <strong>特别说明</strong>: 偏好分≥4的图像会被用于个性化推荐</li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-800 mb-2">任务匹配评分（与当前任务的相关度）</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• <strong>1-2分</strong>: 与当前提示/任务基本不相关</li>
+              <li>• <strong>3分</strong>: 大致相关，但不够贴切</li>
+              <li>• <strong>4-5分</strong>: 与当前提示/任务高度匹配</li>
+              <li>• <strong>提示</strong>: 请根据你对任务要求的理解来判断“是否匹配”</li>
             </ul>
           </div>
         </div>
@@ -762,7 +828,12 @@ export default function ScoringPage() {
                         decoding="async"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 line-clamp-2">{record.image.prompt || `图像 ${record.image.image_id}`}</p>
+                        <p
+                          className="text-sm font-medium text-gray-900 line-clamp-2"
+                          title={record.image.prompt || `图像 ${record.image.image_id}`}
+                        >
+                          {record.image.prompt || `图像 ${record.image.image_id}`}
+                        </p>
                         <p className="mt-2 text-xs text-gray-600">质量 {record.qualityScore} / 偏好 {record.preferenceScore}</p>
                         <p className="mt-1 text-xs text-gray-500">批次 #{record.batchNumber}</p>
                       </div>
@@ -793,7 +864,12 @@ export default function ScoringPage() {
                         decoding="async"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 line-clamp-2">{record.image.prompt || `图像 ${record.image.image_id}`}</p>
+                        <p
+                          className="text-sm font-medium text-gray-900 line-clamp-2"
+                          title={record.image.prompt || `图像 ${record.image.image_id}`}
+                        >
+                          {record.image.prompt || `图像 ${record.image.image_id}`}
+                        </p>
                         <p className="mt-2 text-xs text-gray-600">质量 {record.qualityScore} / 偏好 {record.preferenceScore}</p>
                         <p className="mt-1 text-xs text-gray-500">批次 #{record.batchNumber}</p>
                       </div>

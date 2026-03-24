@@ -39,6 +39,7 @@ export interface Rating {
   image_id: string
   quality_score: number
   preference_score: number
+   task_match_score?: number
   batch_number: number
   created_at?: string
 }
@@ -47,6 +48,7 @@ export interface RatingCreate {
   image_id: string
   quality_score: number
   preference_score: number
+   task_match_score?: number
   batch_number: number
 }
 

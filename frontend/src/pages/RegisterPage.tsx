@@ -45,25 +45,6 @@ export default function RegisterPage() {
   const selectedJobs = watch('jobs')
   const selectedInterests = watch('interests')
 
-  // 全选/取消全选某个类别的职业
-  const toggleAllJobsInCategory = (options: OptionItem[]) => {
-    const allJobIdsInCategory = options.map(opt => opt.id)
-    const currentJobs = new Set(selectedJobs)
-
-    const allSelected = allJobIdsInCategory.every(id => currentJobs.has(id))
-
-    if (allSelected) {
-      // 取消全选
-      allJobIdsInCategory.forEach(id => currentJobs.delete(id))
-    } else {
-      // 全选
-      allJobIdsInCategory.forEach(id => currentJobs.add(id))
-    }
-
-    // 更新表单值
-    return Array.from(currentJobs)
-  }
-
   // 全选/取消全选某个类别的兴趣
   const toggleAllInterestsInCategory = (options: OptionItem[]) => {
     const allInterestIdsInCategory = options.map(opt => opt.id)
@@ -166,7 +147,7 @@ export default function RegisterPage() {
               </p>
               <ul className="space-y-2 text-blue-700">
                 <li>• 您需要对一系列 AI 生成和真实图像进行评分。</li>
-                <li>• 每张图像都要从两个维度评分：<span className="font-semibold">图像质量</span> 和 <span className="font-semibold">个人偏好</span>。</li>
+                <li>• 每张图像都要从三个维度评分：<span className="font-semibold">图像质量</span>、<span className="font-semibold">任务匹配</span> 和 <span className="font-semibold">个人偏好</span>。</li>
                 <li>• 完成至少 20 条评分，且偏好分 ≥4 的图像至少 5 张，即可完成任务。</li>
                 <li>• 您的个人信息仅用于研究分析，我们会严格保密。</li>
               </ul>
@@ -256,12 +237,15 @@ export default function RegisterPage() {
             <div>
               <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-200">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  职业/身份 <span className="text-red-500">*</span>
+                  职业/身份（单选） <span className="text-red-500">*</span>
                 </h2>
                 <div className="text-sm text-gray-500">
-                  已选择 {selectedJobs.length} 项
+                  已选择 {selectedJobs.length} / 1 项
                 </div>
               </div>
+              <p className="text-sm text-gray-500 mb-4">
+                请选择一个最符合您情况的职业/身份（仅选一个）。
+              </p>
 
               <Controller
                 name="jobs"
@@ -275,18 +259,6 @@ export default function RegisterPage() {
                           <h3 className="text-lg font-semibold text-gray-800">
                             {category.category}
                           </h3>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newJobs = toggleAllJobsInCategory(category.options)
-                              field.onChange(newJobs)
-                            }}
-                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            {getSelectedCountInCategory(category.options, field.value) === category.options.length
-                              ? '取消全选'
-                              : '全选'}
-                          </button>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -300,14 +272,11 @@ export default function RegisterPage() {
                               }`}
                             >
                               <input
-                                type="checkbox"
+                                type="radio"
                                 className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                 checked={field.value.includes(option.id)}
-                                onChange={(e) => {
-                                  const newJobs = e.target.checked
-                                    ? [...field.value, option.id]
-                                    : field.value.filter((id: string) => id !== option.id)
-                                  field.onChange(newJobs)
+                                onChange={() => {
+                                  field.onChange([option.id])
                                 }}
                               />
                               <span className="ml-3 text-sm text-gray-700">
@@ -339,6 +308,9 @@ export default function RegisterPage() {
                   已选择 {selectedInterests.length} 项
                 </div>
               </div>
+              <p className="text-sm text-gray-500 mb-4">
+                您可以选择一个或多个感兴趣的方向（可多选）。
+              </p>
 
               <Controller
                 name="interests"

@@ -61,6 +61,7 @@ async def create_rating(
             image_id=rating_data.image_id,
             quality_score=rating_data.quality_score,
             preference_score=rating_data.preference_score,
+            task_match_score=rating_data.task_match_score,
             batch_number=rating_data.batch_number
         )
 
@@ -114,6 +115,7 @@ async def create_ratings_batch(
                 image_id=rating_data.image_id,
                 quality_score=rating_data.quality_score,
                 preference_score=rating_data.preference_score,
+                task_match_score=rating_data.task_match_score,
                 batch_number=rating_data.batch_number
             )
 
