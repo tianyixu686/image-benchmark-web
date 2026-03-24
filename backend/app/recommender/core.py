@@ -7,7 +7,7 @@ import json
 import pickle
 import random
 import time
-from collections import defaultdict, deque
+from collections import defaultdict, deque, Counter
 from typing import Any, Dict, List, Tuple, Optional, Set
 
 import numpy as np
@@ -1210,3 +1210,26 @@ class RecommendationSystem:
             "cluster_ids": cluster_ids,
             "sources": source_list,
         })
+
+        # 将本轮曝光写回数据库，累计每张图像的交互次数
+        if _GLOBAL_INDEX_TO_IMAGE and image_indices:
+            id_counts: Counter[str] = Counter()
+            for idx in image_indices:
+                if 0 <= idx < len(_GLOBAL_INDEX_TO_IMAGE):
+                    image_id = _GLOBAL_INDEX_TO_IMAGE[idx]
+                    id_counts[image_id] += 1
+
+            if id_counts:
+                try:
+                    for image_id, cnt in id_counts.items():
+                        db_image = (
+                            self.db.query(ImageMetadata)
+                            .filter(ImageMetadata.image_id == image_id)
+                            .first()
+                        )
+                        if db_image:
+                            current = db_image.interaction_count or 0
+                            db_image.interaction_count = current + int(cnt)
+                    self.db.commit()
+                except Exception:
+                    self.db.rollback()

@@ -148,7 +148,7 @@ export default function RegisterPage() {
               <ul className="space-y-2 text-blue-700">
                 <li>• 您需要对一系列 AI 生成和真实图像进行评分。</li>
                 <li>• 每张图像都要从三个维度评分：<span className="font-semibold">图像质量</span>、<span className="font-semibold">任务匹配</span> 和 <span className="font-semibold">个人偏好</span>。</li>
-                <li>• 完成至少 20 条评分，且偏好分 ≥4 的图像至少 5 张，即可完成任务。</li>
+                <li>• 完成至少 30 条评分，且偏好分 ≥4 的图像至少 5 张，即可完成任务。</li>
                 <li>• 您的个人信息仅用于研究分析，我们会严格保密。</li>
               </ul>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

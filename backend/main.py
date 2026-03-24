@@ -22,6 +22,17 @@ def ensure_user_profile_columns():
         connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS interests JSON NOT NULL DEFAULT '[]'::json"))
 
 
+def ensure_image_metadata_columns():
+    with engine.begin() as connection:
+        # 在 image_metadata 表中添加交互次数字段，用于持久化每张图像被展示/交互的次数
+        connection.execute(
+            text(
+                "ALTER TABLE IF EXISTS image_metadata "
+                "ADD COLUMN IF NOT EXISTS interaction_count INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+
+
 def migrate_user_profiles_from_redis():
     db = SessionLocal()
     try:
@@ -62,6 +73,7 @@ async def startup_event():
     """
     Base.metadata.create_all(bind=engine)
     ensure_user_profile_columns()
+    ensure_image_metadata_columns()
     migrate_user_profiles_from_redis()
 
     # 预热推荐系统缓存：在服务启动阶段完成特征和聚类加载，

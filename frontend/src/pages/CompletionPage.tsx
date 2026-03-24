@@ -10,6 +10,7 @@ export default function CompletionPage() {
   const { user, isAuthenticated, setUser } = useAuthStore()
   const [progress, setProgress] = useState<UserProgress | null>(null)
   const [recentRatings, setRecentRatings] = useState<Rating[]>([])
+  const [preferenceDistribution, setPreferenceDistribution] = useState<{ [score: number]: number }>({})
   const [isLoading, setIsLoading] = useState(true)
 
   // 检查认证状态
@@ -63,6 +64,16 @@ export default function CompletionPage() {
       const response = await ratingAPI.getUserRatings(user.user_id)
       // 取最近的10条评分
       setRecentRatings(response.slice(-10).reverse())
+
+      // 统计全部评分中的偏好分分布
+      const dist: { [score: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      response.forEach((rating) => {
+        const s = rating.preference_score
+        if (s >= 1 && s <= 5) {
+          dist[s] = (dist[s] || 0) + 1
+        }
+      })
+      setPreferenceDistribution(dist)
     } catch (error) {
       console.error('加载评分记录失败:', error)
     }
@@ -176,9 +187,9 @@ export default function CompletionPage() {
             <h3 className="text-lg font-semibold text-gray-800 mb-4">评分分布</h3>
             <div className="space-y-4">
               {[5, 4, 3, 2, 1].map(score => {
-                // 这里应该从API获取实际的分布数据
-                // 暂时使用模拟数据
-                const percentage = score === 5 ? 35 : score === 4 ? 25 : score === 3 ? 20 : score === 2 ? 15 : 5
+                const total = Object.values(preferenceDistribution).reduce((sum, v) => sum + v, 0)
+                const count = preferenceDistribution[score] || 0
+                const percentage = total > 0 ? Math.round((count / total) * 100) : 0
                 return (
                   <div key={score} className="flex items-center">
                     <div className="w-16 text-sm font-medium text-gray-700">

@@ -57,6 +57,7 @@ class ImageMetadata(Base):
     style = Column(String(50))
     is_real = Column(Boolean, default=False)  # 是否是真实图像
     cluster_id = Column(Integer, index=True)  # 聚类ID
+    interaction_count = Column(Integer, nullable=False, default=0)  # 图像被展示/交互次数
 
     # 索引
     __table_args__ = (

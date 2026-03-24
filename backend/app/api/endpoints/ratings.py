@@ -22,7 +22,8 @@ def refresh_user_completion_status(db: Session, user_id: int) -> dict:
         Rating.user_id == user_id,
         Rating.preference_score >= 4
     ).count()
-    completed = total_ratings >= 20 and high_preference_ratings >= 5
+    # Completion rule: at least 30 ratings in total and 5 ratings with preference >= 4
+    completed = total_ratings >= 30 and high_preference_ratings >= 5
 
     db_user = db.query(User).filter(User.user_id == user_id).first()
     if db_user and db_user.completed != completed:
@@ -171,6 +172,6 @@ async def get_user_progress(
         "total_ratings": progress["total_ratings"],
         "high_preference_ratings": progress["high_preference_ratings"],
         "completed": progress["completed"],
-        "required_total": 20,
+        "required_total": 30,
         "required_high_preference": 5
     }

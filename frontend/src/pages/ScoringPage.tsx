@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 import { useRatingStore } from '../store/ratingStore'
 import { recommendationAPI, ratingAPI } from '../services/api'
-import { ImageInfo, RatingCreate, RecommendationResponse, UserProgress } from '../types'
+import { ImageInfo, RatingCreate, RecommendationResponse } from '../types'
 
 // 单张图像的评分状态
 interface ImageRatingState {
@@ -27,12 +27,11 @@ interface RatedImageRecord {
 export default function ScoringPage() {
   const navigate = useNavigate()
   const { user, isAuthenticated, setUser } = useAuthStore()
-  const { addRating, setCurrentBatch } = useRatingStore()
+  const { addRating, setCurrentBatch, progress, setProgress } = useRatingStore()
 
   const [images, setImages] = useState<ImageRatingState[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [progress, setProgress] = useState<UserProgress | null>(null)
   const [batchNumber, setBatchNumber] = useState(0)
   const [isColdStart, setIsColdStart] = useState(true)
   const [ratedHistory, setRatedHistory] = useState<RatedImageRecord[]>([])
@@ -44,10 +43,30 @@ export default function ScoringPage() {
     }
   }, [isAuthenticated, user, navigate])
 
-  // 加载推荐图像
+  // 加载推荐图像（带本地状态恢复）和进度
   useEffect(() => {
     if (user) {
-      loadRecommendations()
+      const storageKey = `scoring_state_user_${user.user_id}`
+      const saved = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null
+
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as {
+            images: ImageRatingState[]
+            batchNumber: number
+            isColdStart: boolean
+          }
+          setImages(parsed.images || [])
+          setBatchNumber(parsed.batchNumber || 0)
+          setIsColdStart(parsed.isColdStart ?? true)
+          setIsLoading(false)
+        } catch {
+          loadRecommendations()
+        }
+      } else {
+        loadRecommendations()
+      }
+
       loadProgress()
       loadRatedHistory()
     }
@@ -107,6 +126,19 @@ export default function ScoringPage() {
       setImages(imageStates)
       setBatchNumber(response.batch_number)
       setCurrentBatch(response.images)
+
+      // Persist current batch to localStorage so refresh keeps state
+      if (user && typeof window !== 'undefined') {
+        const storageKey = `scoring_state_user_${user.user_id}`
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            images: imageStates,
+            batchNumber: response.batch_number,
+            isColdStart: response.is_cold_start,
+          }),
+        )
+      }
 
       toast.success(`已加载 ${response.images.length} 张图像`)
 
@@ -176,6 +208,19 @@ export default function ScoringPage() {
       } else {
         newImages[index].taskMatchScore = score
       }
+
+      // Sync updated scores to localStorage
+      if (user && typeof window !== 'undefined') {
+        const storageKey = `scoring_state_user_${user.user_id}`
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            images: newImages,
+            batchNumber,
+            isColdStart,
+          }),
+        )
+      }
       return newImages
     })
   }
@@ -206,6 +251,18 @@ export default function ScoringPage() {
       setImages(prev => {
         const newImages = [...prev]
         newImages[index].isSubmitted = true
+
+        if (user && typeof window !== 'undefined') {
+          const storageKey = `scoring_state_user_${user.user_id}`
+          window.localStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              images: newImages,
+              batchNumber,
+              isColdStart,
+            }),
+          )
+        }
         return newImages
       })
 
@@ -272,11 +329,27 @@ export default function ScoringPage() {
       await ratingAPI.createRatingBatch({ ratings })
 
       // 更新本地状态
-      setImages(prev => prev.map(img =>
-        unsubmittedImages.some(ui => ui.image.image_id === img.image.image_id)
-          ? { ...img, isSubmitted: true }
-          : img
-      ))
+      setImages(prev => {
+        const newImages = prev.map(img =>
+          unsubmittedImages.some(ui => ui.image.image_id === img.image.image_id)
+            ? { ...img, isSubmitted: true }
+            : img
+        )
+
+        if (user && typeof window !== 'undefined') {
+          const storageKey = `scoring_state_user_${user.user_id}`
+          window.localStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              images: newImages,
+              batchNumber,
+              isColdStart,
+            }),
+          )
+        }
+
+        return newImages
+      })
 
       // 添加到store
       ratings.forEach(rating => {
@@ -424,6 +497,14 @@ export default function ScoringPage() {
               <span className="font-semibold"> 个人偏好</span>。
             </p>
             <p>
+              <span className="font-semibold">特别重要：</span>
+              个人偏好评分是本任务<span className="font-semibold">最核心</span>的指标，请务必按照你自己的真实喜好来评分，不要为了“客观”去猜测标准答案。
+            </p>
+            <p>
+              在打<span className="font-semibold">个人偏好分</span>时，<span className="font-semibold">完全不要考虑图像的主体内容或是否完成任务</span>，这些都由“任务匹配评分”负责；
+              偏好分只看这张图的风格、色彩、光影、构图和整体审美是不是你喜欢的类型。
+            </p>
+            <p>
               任务匹配分主要关注图像内容与给定提示/任务是否一致，例如主体、属性、场景和整体语义是否贴合描述。
             </p>
             <p>
@@ -432,7 +513,7 @@ export default function ScoringPage() {
               来评分。
             </p>
             <p>
-              偏好分更关注你会不会喜欢这张图，比如它的风格、光影、色彩、构图、氛围和整体审美是否打动你。
+              偏好分更关注你会不会喜欢这张图，比如它的风格、光影、色彩、构图、氛围和整体审美是否打动你，而不管图里画的是什么。
             </p>
             <p>
               例如：同样都是“猫”的图片，如果一张更符合你的审美和风格偏好，即使另一张也很清晰，你仍然可以给前者更高的偏好分。
@@ -464,7 +545,7 @@ export default function ScoringPage() {
                 ></div>
               </div>
               <p className="text-sm text-gray-600">
-                完成至少 {getTotalProgress().required} 条评分即可完成任务
+                完成至少 {getTotalProgress().required} 条评分即可完成任务（当前要求为 30 条）
               </p>
             </div>
           </div>

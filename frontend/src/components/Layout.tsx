@@ -1,14 +1,14 @@
 import { Outlet, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
+import { useRatingStore } from '../store/ratingStore'
 import { ratingAPI } from '../services/api'
-import { UserProgress } from '../types'
 import { toast } from 'react-hot-toast'
 
 export default function Layout() {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout, setUser } = useAuthStore()
-  const [progress, setProgress] = useState<UserProgress | null>(null)
+  const { progress, setProgress } = useRatingStore()
 
   // 获取用户进度
   useEffect(() => {
